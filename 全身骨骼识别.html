@@ -1,0 +1,2241 @@
+﻿<!DOCTYPE html>
+
+
+
+
+<html lang="zh-CN">
+
+
+
+
+<head>
+
+
+
+
+<meta charset="UTF-8">
+
+
+
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+
+
+
+<title>AR Vision - 实时体感互动</title>
+
+
+
+
+<style>
+
+
+
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+
+
+
+html,body{height:100%;overflow:hidden;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","PingFang SC","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+
+
+
+
+
+
+
+
+
+#v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:1;display:none}
+
+
+
+
+#v.on{display:block}
+/* End animation */
+#v.dim{filter:brightness(.25) saturate(.3) blur(4px);transition:filter .8s ease}
+
+
+
+
+
+#c{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+
+
+
+
+
+
+
+
+
+/* 人脸�� Cover Page 人脸�� */
+
+
+
+
+#cover{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;
+
+
+
+
+  background:radial-gradient(ellipse at 50% 0%,#1a1a2e 0%,#0a0a0f 70%,#000 100%);
+
+
+
+
+  transition:opacity .8s ease,transform .8s ease}
+
+
+
+
+#cover.hide{opacity:0;transform:scale(1.05);pointer-events:none}
+
+
+
+
+#orb{position:absolute;width:60vmin;height:60vmin;border-radius:50%;
+
+
+
+
+  background:radial-gradient(circle at 30% 30%,rgba(100,200,255,.08),rgba(100,200,255,.02) 50%,transparent 70%);
+
+
+
+
+  top:20%;left:50%;transform:translate(-50%,0);
+
+
+
+
+  animation:orbPulse 6s ease-in-out infinite}
+
+
+
+
+@keyframes orbPulse{
+
+
+
+
+  0%,100%{transform:translate(-50%,0) scale(1);opacity:.6}
+
+
+
+
+  50%{transform:translate(-50%,-3%) scale(1.08);opacity:1}
+
+
+
+
+}
+
+
+
+
+#cover h1{font-size:clamp(32px,5vw,56px);font-weight:700;letter-spacing:-.02em;color:rgba(255,255,255,.9);
+
+
+
+
+  text-shadow:0 2px 40px rgba(100,200,255,.08);margin-bottom:8px;z-index:1}
+
+
+
+
+#cover p{font-size:clamp(14px,1.8vw,18px);color:rgba(255,255,255,.35);font-weight:400;letter-spacing:.3em;
+
+
+
+
+  text-transform:uppercase;margin-bottom:40px;z-index:1}
+
+
+
+
+#startBtn{padding:14px 48px;border-radius:28px;border:1px solid rgba(255,255,255,.12);
+
+
+
+
+  background:rgba(255,255,255,.06);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+
+
+
+
+  color:rgba(255,255,255,.7);font-size:15px;font-weight:500;letter-spacing:.02em;
+
+
+
+
+  cursor:pointer;transition:all .4s ease;z-index:1;user-select:none}
+
+
+
+
+#startBtn:hover{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.2);transform:scale(1.02)}
+
+
+
+
+#dots{display:flex;gap:8px;margin-top:28px;z-index:1}
+
+
+
+
+#dots span{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.12);transition:all .5s}
+
+
+
+
+#dots span.ok{background:#39ff14;box-shadow:0 0 12px rgba(57,255,20,.3)}
+
+
+
+
+#dotLabel{font-size:11px;color:rgba(255,255,255,.2);letter-spacing:.1em;margin-top:8px;z-index:1}
+
+
+
+
+
+
+
+
+
+/* 人脸�� Top bar 人脸�� */
+
+
+
+
+.bar{position:fixed;top:0;left:0;right:0;padding:10px 18px;display:flex;justify-content:space-between;align-items:center;z-index:10;
+
+
+
+
+  background:linear-gradient(rgba(0,0,0,.55),transparent);pointer-events:none;opacity:0;transition:opacity .6s}
+
+
+
+
+.bar.on{opacity:1}
+
+
+
+
+.brand{font-size:12px;font-weight:600;letter-spacing:.15em;color:rgba(255,255,255,.25)}
+
+
+
+
+.brand em{color:#39ff14;font-style:normal}
+
+
+
+
+.s{display:flex;align-items:center;gap:6px;font-size:10px;color:rgba(255,255,255,.25)}
+
+
+
+
+.s i{width:5px;height:5px;border-radius:50%;background:#444;display:inline-block;transition:all .3s}
+
+
+
+
+.s i.go{background:#39ff14;box-shadow:0 0 10px #39ff14}
+
+
+
+
+
+
+
+
+
+#info{position:fixed;top:48px;right:12px;font-size:10px;line-height:1.6;z-index:9999;color:rgba(255,255,255,.2);text-align:right;opacity:0;transition:opacity .5s;pointer-events:none;font-variant-numeric:tabular-nums}
+
+
+
+
+#info.on{opacity:1}
+
+
+
+
+#info em{color:#39ff14;font-style:normal}
+
+
+
+
+
+
+
+
+
+/* ─── Controls ─── */
+
+
+
+
+#controls{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;opacity:0;transition:opacity .6s;max-width:92vw}
+
+
+
+
+#controls.on{opacity:1}
+
+
+
+
+.ctrl{padding:6px 14px;border-radius:18px;border:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.3);
+
+
+
+
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:rgba(255,255,255,.35);
+
+
+
+
+  font-size:10px;cursor:pointer;transition:all .25s;user-select:none;letter-spacing:.04em;white-space:nowrap}
+
+
+
+
+.ctrl:hover{color:rgba(255,255,255,.55);border-color:rgba(255,255,255,.12)}
+
+
+
+
+.ctrl.on{color:#39ff14;border-color:rgba(57,255,20,.2);background:rgba(57,255,20,.05)}
+
+
+
+
+
+
+
+
+
+#btnStop{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);z-index:9999;display:none}
+
+
+
+
+.btn{padding:10px 28px;border-radius:22px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);
+
+
+
+
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);color:rgba(255,255,255,.5);
+
+
+
+
+  font-size:12px;font-weight:500;letter-spacing:.02em;cursor:pointer;transition:all .3s;user-select:none}
+
+
+
+
+.btn:hover{background:rgba(255,255,255,.07);color:#fff}
+
+
+
+
+.btn.go{color:#ff3b30;border-color:rgba(255,59,48,.2);background:rgba(255,59,48,.04)}
+
+
+
+
+
+
+
+
+
+/* End overlay */
+
+
+#endOverlay{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;
+
+
+  background:rgba(0,0,0,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+
+
+  opacity:0;pointer-events:none;}
+
+
+#endOverlay.show{opacity:1;pointer-events:auto;display:flex!important;transition:opacity .5s ease}#endOverlay.show .end-card{opacity:1!important;visibility:visible!important;transform:translateY(0) scale(1)!important;transition:opacity .6s ease,transform .6s ease}
+
+
+#endOverlay .end-orb{position:absolute;width:50vmin;height:50vmin;border-radius:50%;
+
+
+  background:radial-gradient(circle at 30% 30%,rgba(100,200,255,.06),rgba(100,200,255,.015) 50%,transparent 70%);
+
+
+  top:25%;left:50%;transform:translate(-50%,0);
+
+
+  animation:orbPulse 6s ease-in-out infinite;z-index:0}
+
+
+#endOverlay .end-card{padding:48px 56px;border-radius:28px;border:1px solid rgba(255,255,255,.08);
+
+
+  background:rgba(255,255,255,.04);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);
+
+
+  box-shadow:0 8px 60px rgba(0,0,0,.3);
+
+
+  text-align:center;transform:translateY(30px) scale(.95);opacity:0;
+
+
+  }
+
+
+
+
+
+#endOverlay .end-icon{width:56px;height:56px;border-radius:50%;margin:0 auto 18px;
+
+
+  background:linear-gradient(135deg,rgba(100,200,255,.15),rgba(57,255,20,.08));
+
+
+  border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;
+
+
+  font-size:24px;animation:endPulse 2.5s ease-in-out infinite}
+
+
+@keyframes endPulse{0%,100%{box-shadow:0 0 0 0 rgba(100,200,255,.1)}50%{box-shadow:0 0 0 16px rgba(100,200,255,0)}}
+
+
+#endOverlay h2{font-size:23px;font-weight:600;color:rgba(255,255,255,.85);margin-bottom:6px;letter-spacing:-.01em}
+
+
+#endOverlay .end-sub{font-size:14px;color:rgba(255,255,255,.3);margin-bottom:26px;letter-spacing:.02em}
+
+
+#endOverlay .end-stats{display:flex;gap:32px;margin-bottom:28px;justify-content:center}
+
+
+#endOverlay .end-stat{text-align:center}
+
+
+#endOverlay .end-stat-num{font-size:28px;font-weight:700;color:rgba(255,255,255,.75);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+
+#endOverlay .end-stat-label{font-size:10px;color:rgba(255,255,255,.2);margin-top:2px;letter-spacing:.08em;text-transform:uppercase}
+
+
+#endBtn{padding:12px 40px;border-radius:24px;border:1px solid rgba(255,255,255,.1);
+
+
+  background:rgba(255,255,255,.06);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+
+
+  color:rgba(255,255,255,.6);font-size:13px;font-weight:500;letter-spacing:.02em;
+
+
+  cursor:pointer;transition:all .35s ease;user-select:none}
+
+
+#endBtn:hover{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.18);transform:scale(1.02)}
+/* Stopped state for controls (visible above overlay) */
+#controls.stopped{opacity:1;pointer-events:none;z-index:9999!important}
+#info.stopped{opacity:1;pointer-events:none;z-index:9999!important}
+#v.stopped{filter:brightness(.35) saturate(.4) blur(8px)}
+#stopBtn:disabled{opacity:.7;cursor:default;background:rgba(255,255,255,.04);z-index:9999!important}
+
+
+
+
+.end-particle{position:absolute;border-radius:50%;background:rgba(100,200,255,.25);pointer-events:none;z-index:0;box-shadow:0 0 12px rgba(100,200,255,.08)}
+
+
+#endOverlay .end-fade{position:absolute;inset:0;z-index:-1;
+
+
+  background:radial-gradient(ellipse at 50% 20%,rgba(100,200,255,.06) 0%,transparent 50%)}
+
+
+
+
+
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+</head>
+
+
+
+
+<body>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div id="cover">
+
+
+
+
+  <div id="orb"></div>
+
+
+
+
+  <h1>AR Vision</h1>
+
+
+
+
+  <p>实时体感互动</p>
+
+
+
+
+  <button id="startBtn">开始体验</button>
+
+
+
+
+  <div id="dots"><span></span><span></span><span></span></div>
+
+
+
+
+  <div id="dotLabel">就绪</div>
+
+
+
+
+</div>
+
+<div id="endOverlay">
+
+
+  <div class="end-fade"></div>
+
+
+  <div class="end-orb"></div>
+
+
+  <div class="end-card">
+
+
+    <div class="end-icon">*</div>
+
+
+    <h2>体验结束</h2>
+
+
+    <p class="end-sub">感谢你的互动，期待再次相遇</p>
+
+
+    <div class="end-stats">
+
+
+      <div class="end-stat"><div class="end-stat-num" id="endFrames">0</div><div class="end-stat-label">处理帧数</div></div>
+
+
+      <div class="end-stat"><div class="end-stat-num" id="endTime">0s</div><div class="end-stat-label">使用时长</div></div>
+
+
+    </div>
+
+
+    <button id="endBtn">再玩一次</button>
+
+
+  </div>
+
+
+</div>
+
+
+
+
+
+
+
+
+<video id="v" autoplay playsinline muted></video>
+
+
+
+
+<canvas id="c"></canvas>
+
+
+
+
+
+
+
+
+
+<div class="bar">
+
+
+
+
+  <div class="s"><i id="dot"></i><span id="txt">待机</span></div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+
+
+<div id="info">
+
+
+
+
+  <div><em id="fps">0</em> FPS &middot; 姿态<em id="kp">0</em> 人脸<em id="fc">0</em> 手部<em id="hc">0</em></div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div id="controls">
+
+
+
+
+  <div class="ctrl on" data-ctrl="skel">🦴 骨骼</div>
+
+
+
+
+</div>
+
+
+
+
+<div id="btnStop"><button class="btn go" id="stopBtn"><span>✕</span> <span>停止</span></button></div>
+
+
+
+
+<!-- removed bubble/toast -->
+
+
+
+
+
+
+
+
+
+<script>
+
+
+
+
+// ===================================================================
+
+
+
+
+// SETUP
+
+
+
+
+// ===================================================================
+
+
+
+
+var $=s=>document.querySelector(s);
+
+
+
+
+var v=$('#v'),c=$('#c'),ctx=c.getContext('2d');
+
+
+
+
+// Detect file:// protocol and warn
+if(location.protocol==='file:'){
+  document.body.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;color:#fff;padding:40px;text-align:center;font-family:-apple-system,sans-serif">'+
+    '<div style="font-size:48px;margin-bottom:20px">⚠️</div>'+
+    '<h2 style="font-weight:600;margin-bottom:12px;font-size:22px">请通过 HTTP 服务器打开</h2>'+
+    '<p style="color:rgba(255,255,255,.5);max-width:400px;line-height:1.6">不能直接双击 HTML 文件。<br>请先启动 Node.js 服务器：<br><code style="display:inline-block;background:rgba(255,255,255,.08);padding:4px 12px;border-radius:6px;margin-top:8px">启动识别.bat</code></p>'+
+    '<p style="color:rgba(255,255,255,.3);font-size:13px;margin-top:16px">或访问 <a href="http://127.0.0.1:8768/" style="color:#64c8ff">http://127.0.0.1:8768/</a></p>'+
+  '</div>';
+  throw new Error('file:// protocol detected');
+}
+
+
+window.onerror=function(msg,url,line){document.getElementById('dotLabel').textContent='JS错误: '+msg;document.getElementById('dotLabel').style.color='#ff3b30';}
+
+
+
+
+window.addEventListener('unhandledrejection',function(e){document.getElementById('dotLabel').textContent='Promise错误: '+e.reason;document.getElementById('dotLabel').style.color='#ff3b30';});
+
+
+
+
+var txt=$('#txt'),dot=$('#dot');
+
+
+
+
+var fpsEl=$('#fps'),kpEl=$('#kp'),fcEl=$('#fc'),hcEl=$('#hc');
+
+
+
+
+var info=$('#info'),controls=$('#controls'),bar=$('.bar');
+
+
+
+
+var cover=$('#cover'),coverDots=($('#dots')?$('#dots').children:null),dotLabel=$('#dotLabel');
+
+
+
+
+var stopBtn=$('#btnStop');
+
+
+
+
+
+
+
+
+
+var BASE='mediapipe/';
+
+
+
+
+var active=false,running=false;
+
+
+
+
+var stream=null;
+var _frameCount=0;
+
+
+
+
+var poseReady=false,faceReady=false,handsReady=false;
+
+
+
+
+var lastPose=null,lastFace=null,lastHands=null;
+
+
+
+
+var CTRLS={skel:true};
+
+
+
+
+
+
+
+
+
+function setT(s){txt.textContent=s}
+
+
+
+
+function setD(s){
+
+
+
+
+  dot.className=s==='go'?'go':'';
+
+
+
+
+  bar.classList.toggle('on',s==='go');
+
+
+
+
+}
+
+
+
+
+function setCoverDot(i,ok){coverDots[i].className=ok?'ok':'off'}
+
+
+
+
+function setCoverLabel(s){dotLabel.textContent=s}
+
+
+
+
+
+
+
+
+
+// Debug: show errors on screen
+
+
+
+
+function showCoverError(msg){
+
+
+
+
+  dotLabel.textContent=msg;
+
+
+
+
+  dotLabel.style.color="#ff3b30";
+
+
+
+
+  dotLabel.style.fontSize="13px";
+
+
+
+
+}
+
+// ── Temporal smoothing for hand landmarks (reduces jitter/misalignment) ──
+var _smoothHands=[],_smoothFactor=0.55;
+function _smoothHL(raw){
+  if(!raw||!raw.length){_smoothHands=[];return raw;}
+  var out=[];
+  for(var h=0;h<raw.length;h++){
+    var src=raw[h];if(!src||src.length<21){out.push(src);continue;}
+    var prev=_smoothHands[h]||null;var dst=[];
+    for(var j=0;j<21;j++){
+      if(!src[j]){dst.push(src[j]);continue;}
+      if(prev&&prev[j]){
+        dst.push({x:prev[j].x*_smoothFactor+src[j].x*(1-_smoothFactor),
+                  y:prev[j].y*_smoothFactor+src[j].y*(1-_smoothFactor),
+                  z:prev[j].z*_smoothFactor+src[j].z*(1-_smoothFactor)});
+      }else{dst.push({x:src[j].x,y:src[j].y,z:src[j].z});}
+    }
+    out.push(dst);
+  }
+  _smoothHands=out;
+  return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function rs(){
+  var W=innerWidth,H=innerHeight,dpr=1;
+  c.width=W*dpr;c.height=H*dpr;
+  c.style.width=W+'px';c.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+
+
+
+
+}
+
+
+
+
+addEventListener('resize',rs);rs();
+
+
+
+
+
+
+
+
+
+// Coordinate mapping (mirrored for selfie)
+
+
+
+
+function X(p){
+  // Cache video dims per frame
+  if(X._f!==_frameCount){X._f=_frameCount;var w=v.videoWidth,h=v.videoHeight,W=innerWidth,H=innerHeight;
+    if(w&&h){var s=Math.max(W/w,H/h);X._ox=(w*s-W)/2/(w*s);X._oy=(h*s-H)/2/(h*s);X._W=W}else{X._ox=0;X._oy=0;X._W=W}}
+  return(1-(p.x-X._ox)/(1-2*X._ox))*X._W
+}
+function Y(p){
+  if(Y._f!==_frameCount){Y._f=_frameCount;var w=v.videoWidth,h=v.videoHeight,W=innerWidth,H=innerHeight;
+    if(w&&h){var s=Math.max(W/w,H/h);Y._ox=(w*s-W)/2/(w*s);Y._oy=(h*s-H)/2/(h*s);Y._H=H}else{Y._ox=0;Y._oy=0;Y._H=H}}
+  return((p.y-Y._oy)/(1-2*Y._oy))*Y._H
+}
+
+
+
+
+
+
+
+
+
+// ─── Pose skeleton connections (BODY ONLY, no hand fingers: remove landmarks 17-22) ───
+
+
+
+
+var PC=[[0,1],[1,2],[2,3],[0,4],[4,5],[5,6],[3,7],[6,8],[9,10],[7,9],[8,10],
+
+
+
+
+        [11,13],[13,15],[12,14],[14,16],
+
+
+
+
+        [11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28],
+
+
+
+
+        [27,29],[29,31],[27,31],[28,30],[30,32],[28,32]];
+
+
+
+
+
+
+
+
+
+var HC=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
+        [0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],
+        [0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]];
+
+
+
+
+
+
+
+
+
+function calcAngle(a,b,c){
+  var ab={x:X(a)-X(b),y:Y(a)-Y(b)};
+  var bc={x:X(c)-X(b),y:Y(c)-Y(b)};
+  var d=ab.x*bc.x+ab.y*bc.y;
+  var m=Math.sqrt(ab.x*ab.x+ab.y*ab.y)*Math.sqrt(bc.x*bc.x+bc.y*bc.y);
+  if(m<1e-6)return 0;
+  return Math.acos(Math.max(-1,Math.min(1,d/m)))*180/Math.PI;
+}
+
+function loadScript(src){
+
+
+
+
+  return new Promise(function(ok,no){
+
+
+
+
+    var e=document.createElement('script');
+
+
+
+
+    e.src=src;e.onload=ok;e.onerror=no;
+
+
+
+
+    document.head.appendChild(e);
+
+
+
+
+  });
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+// ===================================================================
+
+
+
+
+// COVER FLOW
+
+
+
+
+// ===================================================================
+
+
+
+
+var coverHidden=false;
+
+
+
+
+
+
+
+
+
+// Delay startup until DOM is fully ready
+
+
+
+
+var _startBtn=document.getElementById('startBtn');
+
+
+
+
+if(_startBtn)_startBtn.addEventListener('click',async function(){
+
+
+
+
+  if(coverHidden)return;
+
+
+
+
+  try{
+
+
+
+
+    coverHidden=true;
+
+
+
+
+    setCoverLabel('正在初始化...');
+
+
+
+
+    setCoverDot(0,true);
+
+
+
+
+    setCoverLabel('加载模型中...');
+
+
+
+
+    var ok=await loadModels();
+
+
+
+
+    if(!ok){showCoverError('模型加载失败，查看控制台');return}
+
+
+
+
+    setCoverDot(1,true);
+
+
+
+
+    setCoverLabel('启动摄像头...');
+
+
+
+
+    var camOK=await startCam();
+
+
+
+
+    if(!camOK){showCoverError('摄像头被拒绝，允许权限后重试');return}
+
+
+
+
+    setCoverDot(2,true);
+
+
+
+
+    setCoverLabel('就绪！');
+
+
+
+
+    cover.classList.add("hide");
+
+
+
+
+    setTimeout(function(){
+
+
+
+
+      cover.style.display='none';
+
+
+
+
+      info.classList.remove('stopped');
+      info.classList.add('on');
+
+
+
+
+      controls.classList.remove('stopped');
+      controls.classList.add('on');
+
+
+
+
+      var _sbR=document.getElementById('stopBtn');if(_sbR){_sbR.disabled=false;_sbR.innerHTML='<span>✕</span> <span>停止</span>';}
+      stopBtn.style.display='block';
+
+
+
+
+      setD('go');
+
+
+
+
+      _startTime=Date.now();
+
+
+
+
+      active=true;
+
+
+
+
+      loop();
+
+
+
+
+      render();
+
+
+
+
+    }, 300);
+
+
+
+
+  } catch(e){
+
+
+
+
+    console.error('[AR] Fatal:',e);
+
+
+
+
+    showCoverError('错误: '+e.message);
+
+
+
+
+  }
+
+
+
+
+});
+
+
+
+
+// MODEL LOADING
+
+
+
+
+// ===================================================================
+
+
+
+
+async function loadModels(){
+
+
+
+
+  try{
+
+
+
+
+    await loadScript(BASE+'pose.js');
+
+
+
+
+    if(typeof Pose!=='undefined'){
+
+
+
+
+      var p=new Pose({locateFile:f=>BASE+f});
+
+
+
+
+      p.setOptions({modelComplexity:1,smoothLandmarks:true,enableSegmentation:false,
+
+
+
+
+        minDetectionConfidence:.5,minTrackingConfidence:.5});
+
+
+
+
+      p.onResults(function(r){lastPose=r;console.log("[Pose]",r.poseLandmarks?r.poseLandmarks.length:0)});
+
+
+
+
+      await p.initialize();
+
+
+
+
+      window._pose=p;poseReady=true;
+
+
+
+
+    }
+
+
+
+
+  }catch(e){console.error('Pose err',e)}
+
+
+
+
+  try{
+
+
+
+
+    await loadScript(BASE+'face_mesh.js');
+
+
+
+
+    if(typeof FaceMesh!=='undefined'){
+
+
+
+
+      var f=new FaceMesh({locateFile:fn=>BASE+fn});
+
+
+
+
+      f.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:.5,minTrackingConfidence:.5});
+
+
+
+
+      f.onResults(function(r){lastFace=r;console.log("[Face]",r.multiFaceLandmarks?r.multiFaceLandmarks.length:0)});
+
+
+
+
+      await f.initialize();
+
+
+
+
+      window._face=f;faceReady=true;
+
+
+
+
+    }
+
+
+
+
+  }catch(e){console.error('Face err',e)}
+
+
+
+
+  try{
+
+
+
+
+    await loadScript(BASE+'hands.js');
+
+
+
+
+    if(typeof Hands!=='undefined'){
+
+
+
+
+      var h=new Hands({locateFile:fn=>BASE+fn});
+
+
+
+
+      h.setOptions({modelComplexity:1,maxNumHands:2,minDetectionConfidence:.5,minTrackingConfidence:.5});
+
+
+
+
+      h.onResults(function(r){lastHands=r;console.log("[Hands]",r.multiHandLandmarks?r.multiHandLandmarks.length:0)});
+
+
+
+
+      await h.initialize();
+
+
+
+
+      window._hands=h;handsReady=true;
+
+
+
+
+    }
+
+
+
+
+  }catch(e){console.error('Hands err',e)}
+
+
+
+
+  return poseReady||faceReady||handsReady;
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+// ===================================================================
+
+
+
+
+// CAMERA
+
+
+
+
+// ===================================================================
+
+
+
+
+async function startCam(){
+
+
+
+
+  try{
+
+
+
+
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+
+
+
+
+    var _vs=document.getElementById('v');if(!_vs)return false;
+
+
+
+
+    _vs.srcObject=stream;
+
+
+
+
+    await _vs.play();
+
+
+
+
+    _vs.classList.add('on');
+
+
+
+
+    return true;
+
+
+
+
+  }catch(e){console.error('Camera err',e);return false}
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+function stopCam(){
+
+
+
+
+  active=false;
+
+
+
+
+  if(stream){stream.getTracks().forEach(function(t){t.stop()});stream=null}
+
+
+
+
+  var _v2=document.getElementById('v');if(_v2){_v2.srcObject=null;_v2.classList.add('stopped');}
+
+
+
+
+  var _i2=document.getElementById('info');if(_i2)_i2.classList.add('stopped');var _c2=document.getElementById('controls');if(_c2)_c2.classList.add('stopped');
+
+
+
+
+  var _sb2=document.getElementById('stopBtn');if(_sb2){_sb2.disabled=true;_sb2.innerHTML='<span>✓</span> <span>已结束</span>';}
+
+
+
+
+  var _cc=document.getElementById('c');if(_cc){var _cctx=_cc.getContext('2d');_cctx.clearRect(0,0,innerWidth,innerHeight);}
+
+
+
+
+  setT('待机');setD('');
+
+
+
+
+  // cleaned up
+
+
+
+
+  [window._pose,window._face,window._hands].forEach(function(m){
+
+
+
+
+    if(m){try{m.close()}catch(e){}}
+
+
+
+
+  });
+
+
+
+
+  window._pose=null;window._face=null;window._hands=null;
+
+
+
+
+  poseReady=false;faceReady=false;handsReady=false;
+
+
+
+
+  lastPose=null;lastFace=null;lastHands=null;
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+var endOverlay=document.getElementById('endOverlay');
+
+
+
+var endBtn=document.getElementById('endBtn');
+
+
+
+var endFrames=document.getElementById('endFrames');
+
+
+
+var endTime=document.getElementById('endTime');
+
+
+
+var _startTime=0;
+
+
+
+
+
+
+
+// ========== Force end overlay (safety net) ==========
+function forceEndOverlay(){
+  try{
+    var el=document.getElementById('endOverlay');
+    if(!el)return;
+    el.style.cssText='opacity:1!important;pointer-events:auto!important;display:flex!important';
+    el.classList.add('show');
+    var card=document.querySelector('#endOverlay .end-card');
+    if(card)card.style.cssText='opacity:1!important;transform:translateY(0) scale(1)!important';
+    // Reset stop button state so user can click again
+    var sb=document.getElementById('stopBtn');
+    if(sb){sb.disabled=false;sb.innerHTML='<span>✕</span> <span>停止</span>';}
+  }catch(e){console.warn('[forceEndOverlay]',e)}
+}
+
+var _stopBtn=document.getElementById('stopBtn');
+
+
+
+
+if(_stopBtn)_stopBtn.addEventListener('click',function(){try{
+  active=false;
+  var vi=document.getElementById('v');
+  if(vi){vi.classList.add('dim');vi.classList.add('stopped')}
+  var ca=document.getElementById('c');
+  if(ca){ca.style.display='';}
+  var ci=document.getElementById('info');if(ci)ci.classList.add('stopped');
+  var cc=document.getElementById('controls');if(cc)cc.classList.add('stopped');
+  var sb=document.getElementById('stopBtn');if(sb){sb.disabled=true;sb.innerHTML='<span>✓</span> <span>已结束</span>';}
+  var _dEl=document.getElementById('dot');if(_dEl)_dEl.className='';
+  if(endFrames)endFrames.textContent=_frameCount||0;
+  if(endTime)endTime.textContent=Math.floor((Date.now()-_startTime)/1000)+'s';
+
+  // GSAP end animation timeline
+  if(window.endTL) window.endTL.kill();
+  var tl=null;
+  try{tl=gsap.timeline({paused:true});window.endTL=tl;}catch(e){console.warn('[GSAP] not available, using CSS fallback',e)}
+  if(!tl){
+    // GSAP unavailable — fallback to direct CSS
+    endOverlay.classList.add('show');
+    endOverlay.style.opacity='1';
+    var card=document.querySelector('#endOverlay .end-card');
+    if(card){card.style.opacity='1';card.style.transform='translateY(0) scale(1)';}
+    var orb=document.querySelector('#endOverlay .end-orb');
+    if(orb){orb.style.opacity='.6';orb.style.transform='scale(1)';}
+    setTimeout(function(){
+      if(stream){stream.getTracks().forEach(function(t){t.stop()});stream=null}
+      if(vi){vi.srcObject=null;}
+      [window._pose,window._face,window._hands].forEach(function(m){
+        if(m){try{m.close()}catch(e){}}
+      });
+      window._pose=null;window._face=null;window._hands=null;
+      poseReady=false;faceReady=false;handsReady=false;
+      lastPose=null;lastFace=null;lastHands=null;
+    },500);
+    return;
+  }
+  // Video dim/blur
+  tl.to(vi,{filter:'brightness(.3) saturate(.4) blur(8px)',duration:.6,ease:'power2.inOut'},0);
+  // Controls slide down + fade
+  tl.to('#controls',{y:12,duration:.5,ease:'power2.out'},0);
+  tl.to('#info',{y:12,duration:.5,ease:'power2.out'},0);
+  // Overlay fade in + enable pointer events
+  tl.to('#endOverlay',{opacity:1,duration:.5,ease:'power1.out',onComplete:function(){
+    endOverlay.classList.add('show');
+  }},.3);
+  // Orb scale in
+  tl.fromTo('#endOverlay .end-orb',{scale:0,opacity:0},{scale:1,opacity:.6,duration:.6,ease:'back.out(1.4)'},.5);
+  // Card entrance
+  var card=document.querySelector('#endOverlay .end-card');
+  tl.fromTo(card,{y:30,opacity:0},{y:0,opacity:1,duration:.6,ease:'power3.out'},.6);
+  // Card children stagger
+  var cardKids=card?card.children:[];
+  if(cardKids.length){
+    tl.fromTo(cardKids,{y:12,opacity:0},{y:0,opacity:1,duration:.4,ease:'power2.out',stagger:.1},.8);
+  }
+
+  // Continuous phase (infinite) — starts after entrance completes
+  tl.add(function(){
+    // Orb pulse
+    gsap.to('#endOverlay .end-orb',{scale:1.08,opacity:.4,duration:2.5,ease:'sine.inOut',repeat:-1,yoyo:true});
+    // Particles float
+    var pts=document.querySelectorAll('.end-particle');
+    if(pts.length){
+      pts.forEach(function(p){
+        var tx=(Math.random()-.5)*60;
+        var ty=(Math.random()-.5)*40-20;
+        gsap.to(p,{x:tx,y:ty,opacity:.6,duration:3+Math.random()*2,ease:'sine.inOut',repeat:-1,yoyo:true});
+      });
+    }
+    // Kill camera/models after animation completes
+    setTimeout(function(){
+      if(stream){stream.getTracks().forEach(function(t){t.stop()});stream=null}
+      if(vi){vi.srcObject=null;}
+      [window._pose,window._face,window._hands].forEach(function(m){
+        if(m){try{m.close()}catch(e){}}
+      });
+      window._pose=null;window._face=null;window._hands=null;
+      poseReady=false;faceReady=false;handsReady=false;
+      lastPose=null;lastFace=null;lastHands=null;
+    }, 500);
+  });
+
+  tl.eventCallback('onComplete',function(){if(stream){stream.getTracks().forEach(function(t){t.stop()});stream=null}});setTimeout(forceEndOverlay,2000);try{tl.play()}catch(e){console.warn('[GSAP-play]',e);forceEndOverlay();}
+}catch(e){
+  console.error('[Stop]',e);
+  forceEndOverlay();
+}
+});
+
+
+
+
+
+
+
+
+if(endBtn)endBtn.addEventListener('click',function(){try{if(window.endTL){window.endTL.kill();window.endTL=null};gsap.set('#endOverlay',{clearProps:'all'});
+  gsap.set('#endOverlay .end-card',{clearProps:'all'});
+  gsap.set('#endOverlay .end-orb',{clearProps:'all'});
+  gsap.set('#controls',{clearProps:'all'});
+  gsap.set('#info',{clearProps:'all'});
+  gsap.set('.end-particle',{clearProps:'all'});
+  var _card=document.querySelector('#endOverlay .end-card');
+  if(_card){gsap.set(_card.children,{clearProps:'all'})}}catch(e){console.warn('[GSAP-reset]',e)}
+  var _vi2=document.getElementById('v');
+  if(_vi2){_vi2.classList.remove('dim');_vi2.style.filter='';_vi2.classList.remove('stopped')};
+  endOverlay.classList.remove('show');
+  document.getElementById('info').classList.remove('stopped');
+  document.getElementById('controls').classList.remove('stopped');
+  var _sbE=document.getElementById('stopBtn');if(_sbE){_sbE.disabled=false;_sbE.innerHTML='<span>✕</span> <span>停止</span>';}
+  var ca2=document.getElementById('c');
+  if(ca2){ca2.style.display='';}
+  setTimeout(function(){
+    cover.style.display='flex';
+    cover.classList.remove('hide');
+    coverHidden=false;
+    setCoverDot(0,false);setCoverDot(1,false);setCoverDot(2,false);
+    setCoverLabel('就绪');
+  }, 700);
+});
+
+
+
+// DETECTION LOOP
+
+
+
+
+// ===================================================================
+
+
+
+
+function loop(){
+  if(!active)return;
+  if(v.paused||v.ended){requestAnimationFrame(loop);return}
+  var _sf=loop._sf=(loop._sf||0)+1;
+  if(window._pose&&_sf%2===0){try{window._pose.send({image:v}).catch(function(e){console.warn("[Pose]",e)})}catch(e){console.warn("[Pose-throw]",e);txt.textContent="POSE: "+e.message}}
+  if(window._face&&_sf%3===0){try{window._face.send({image:v}).catch(function(e){console.warn("[Face]",e)})}catch(e){console.warn("[Face-throw]",e);txt.textContent="FACE: "+e.message}}
+  if(window._hands){try{window._hands.send({image:v}).catch(function(e){console.warn("[Hands]",e)})}catch(e){console.warn("[Hands-throw]",e);txt.textContent="HAND: "+e.message}}
+
+
+
+
+  requestAnimationFrame(loop);
+
+
+
+
+}
+
+
+
+
+// ===================================================================
+
+
+
+
+// RENDER LOOP
+
+
+
+
+// ===================================================================
+
+
+
+
+var fc=0,fps=0,lt=0;
+
+
+
+
+
+
+
+
+// removed: effects vars
+
+
+
+
+
+
+
+
+
+function render(t){
+
+
+
+
+  if(!active)return;
+
+
+
+
+  requestAnimationFrame(render);
+
+
+
+
+  fc++;_frameCount++;
+
+
+
+  if(t-lt>1e3){fps=fc;fc=0;lt=t;fpsEl&&(fpsEl.textContent=fps)}
+
+
+
+
+  var W=innerWidth,H=innerHeight;
+
+
+
+
+  ctx.clearRect(0,0,W,H);
+
+
+
+
+
+
+
+
+
+  // �T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T
+
+
+
+
+  // 1. POSE BODY SKELETON (no hand fingers)
+
+
+
+
+  // �T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T
+
+
+
+
+  if(lastPose&&lastPose.poseLandmarks&&CTRLS.skel){
+
+
+
+
+    var lm=lastPose.poseLandmarks;
+
+
+
+
+    kpEl&&(kpEl.textContent=lm.length);
+
+
+
+
+    ctx.strokeStyle='rgba(255,255,255,.1)';ctx.lineWidth=1.5;
+
+
+
+
+    PC.forEach(function(pair){
+
+
+
+
+      var a=lm[pair[0]],b=lm[pair[1]];
+
+
+
+
+      if(!a||!b||a.visibility<.5||b.visibility<.5)return;
+
+
+
+
+      ctx.beginPath();ctx.moveTo(X(a),Y(a));ctx.lineTo(X(b),Y(b));ctx.stroke();
+
+
+
+
+    });
+
+    // ── Torso emphasis ──
+    var _tl=[[11,12],[23,24],[11,24],[12,23]];
+    ctx.strokeStyle='rgba(100,200,255,.08)';ctx.lineWidth=3;
+    _tl.forEach(function(p){
+      var a=lm[p[0]],b=lm[p[1]];
+      if(!a||!b||a.visibility<.5||b.visibility<.5)return;
+      ctx.beginPath();ctx.moveTo(X(a),Y(a));ctx.lineTo(X(b),Y(b));ctx.stroke();
+    });
+
+    // ── Face contour ──
+    var _faceIdx=[0,1,2,3,7,0,4,5,6,8,0,9,10,0];
+    ctx.strokeStyle='rgba(255,200,150,.08)';ctx.lineWidth=2;
+    ctx.beginPath();
+    _faceIdx.forEach(function(idx,i){
+      if(!lm[idx]||lm[idx].visibility<.5)return;
+      var x=X(lm[idx]),y=Y(lm[idx]);
+      if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+
+    // All body landmarks
+
+
+
+
+    for(var i=0;i<lm.length;i++){
+
+
+
+
+      var p=lm[i];
+
+
+
+
+      if(!p||p.visibility<.5)continue;
+
+
+
+
+      ctx.beginPath();ctx.arc(X(p),Y(p),2.5,0,Math.PI*2);
+
+
+
+
+      ctx.fillStyle='rgba(57,255,20,.45)';ctx.fill();
+
+
+
+
+    }
+
+
+
+
+  }else{kpEl&&(kpEl.textContent=(poseReady?'0':'--'))}
+
+
+
+
+
+
+
+
+
+  // �T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T  // ── Joint angles (enhanced) ──
+  if(lastPose&&lastPose.poseLandmarks){
+    var pl=lastPose.poseLandmarks;
+    var ags=[];
+    if(pl[11]&&pl[13]&&pl[15]&&pl[11].visibility>.5) ags.push({l:'L-肘',v:calcAngle(pl[11],pl[13],pl[15]),cl:'#00f0ff'});
+    if(pl[12]&&pl[14]&&pl[16]&&pl[12].visibility>.5) ags.push({l:'R-肘',v:calcAngle(pl[12],pl[14],pl[16]),cl:'#ff8c00'});
+    if(pl[23]&&pl[25]&&pl[27]&&pl[23].visibility>.5) ags.push({l:'L-膝',v:calcAngle(pl[23],pl[25],pl[27]),cl:'#39ff14'});
+    if(pl[24]&&pl[26]&&pl[28]&&pl[24].visibility>.5) ags.push({l:'R-膝',v:calcAngle(pl[24],pl[26],pl[28]),cl:'#ff4500'});
+    if(pl[11]&&pl[12]&&pl[24]&&pl[11].visibility>.5) ags.push({l:'躯干',v:calcAngle(pl[11],pl[12],pl[24]),cl:'#ffff00'});
+    if(pl[0]&&pl[11]&&pl[12]&&pl[0].visibility>.5) ags.push({l:'颈',v:calcAngle(pl[0],pl[11],pl[12]),cl:'#ff69b4'});
+    var agH=ags.length*24+16,agY=innerHeight-30-agH;
+    if(agY<10)agY=10;
+    // Background bar
+    ctx.fillStyle='rgba(0,0,0,.55)';
+    ctx.beginPath();ctx.roundRect(8,agY,170,agH,10);ctx.fill();
+    ctx.font='13px "SF Pro Text",sans-serif';
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ags.forEach(function(a,i){
+      var y=agY+12+i*24;
+      // Color dot
+      ctx.beginPath();ctx.arc(22,y,5,0,Math.PI*2);
+      ctx.fillStyle=a.cl;ctx.fill();
+      // Label
+      ctx.fillStyle='rgba(255,255,255,.7)';
+      ctx.fillText(a.l,34,y-1);
+      // Value
+      ctx.fillStyle=a.cl;
+      ctx.fillText(Math.round(a.v)+'°',122,y-1);
+    });
+  }
+
+  // 2. FACE (keep face count display)
+  if(lastFace&&lastFace.multiFaceLandmarks&&lastFace.multiFaceLandmarks.length>0){
+    fcEl&&(fcEl.textContent=lastFace.multiFaceLandmarks[0]&&lastFace.multiFaceLandmarks[0].length>=468?'468':'--')
+  }else{fcEl&&(fcEl.textContent=faceReady?'0':'--')}
+
+
+
+
+
+
+
+
+
+  // �T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T
+
+
+
+
+  // 3. HANDS + GESTURES (BOTH hands)
+
+
+
+
+  // �T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T
+
+
+
+
+  var handCount=0;
+
+
+
+
+  if(lastHands&&lastHands.multiHandLandmarks&&lastHands.multiHandLandmarks.length>0){
+
+
+
+
+    handCount=lastHands.multiHandLandmarks.length;
+
+
+
+
+
+
+
+
+
+            // ── X-RAY HAND SKELETON (medical grade) ──
+    if(CTRLS.skel){try{
+      var _t=Date.now()/1000;
+      // Medical bone names
+      var BONE_NAMES={0:'Carpals',1:'MCP',2:'PIP',3:'DIP',4:'Distal Phalanx',
+                      5:'MCP',6:'PIP',7:'DIP',8:'Distal Phalanx',
+                      9:'MCP',10:'PIP',11:'DIP',12:'Distal Phalanx',
+                      13:'MCP',14:'PIP',15:'DIP',16:'Distal Phalanx',
+                      17:'MCP',18:'PIP',19:'DIP',20:'Distal Phalanx'};
+      var JOINT_BONE={1:'1st Metacarpal',5:'2nd Metacarpal',9:'3rd Metacarpal',13:'4th Metacarpal',17:'5th Metacarpal'};
+      // Neon medical palette
+      var NEON_CYAN='rgba(0,255,255,';  // cyan
+      var NEON_PURPLE='rgba(180,0,255,'; // purple
+      var NEON_WHITE='rgba(220,240,255,';
+
+      for(var hi=0;hi<handCount;hi++){
+        var hl=_smoothHL(lastHands.multiHandLandmarks)[hi];
+        if(!hl||hl.length<21)continue;
+        var hn=lastHands.multiHandedness&&lastHands.multiHandedness[hi];
+        var isRight=hn&&hn.classification&&hn.classification[0]&&hn.classification[0].label==='Right';
+        var handLabel=isRight?'RIGHT':'LEFT';
+
+        // ── Hand bounds for label positioning ──
+        var minX=innerWidth,minY=innerHeight,maxX=0,maxY=0;
+        hl.forEach(function(p){if(p){var xx=(1-p.x)*innerWidth,yy=p.y*innerHeight;if(xx<minX)minX=xx;if(yy<minY)minY=yy;if(xx>maxX)maxX=xx;if(yy>maxY)maxY=yy;}});
+        var pad=40;minX=Math.max(0,minX-pad);minY=Math.max(0,minY-pad);maxX=Math.min(innerWidth,maxX+pad);maxY=Math.min(innerHeight,maxY+pad);
+
+        // ── BONES: X-ray glowing style ──
+        ctx.save();
+        // Metacarpals (wrist to MCP) - purple neon
+        var mcpIndices=[1,5,9,13,17];
+        mcpIndices.forEach(function(mi){
+          var w=hl[0],m=hl[mi];
+          if(!w||!m)return;
+          var wx=(1-w.x)*innerWidth,wy=w.y*innerHeight;
+          var mx=(1-m.x)*innerWidth,my=m.y*innerHeight;
+          ctx.shadowBlur=6;ctx.shadowColor='rgba(180,0,255,.5)';
+          ctx.beginPath();ctx.moveTo(wx,wy);ctx.lineTo(mx,my);
+          ctx.strokeStyle=NEON_PURPLE+'0.6)';ctx.lineWidth=3;ctx.stroke();
+          ctx.shadowBlur=0;
+          ctx.beginPath();ctx.moveTo(wx,wy);ctx.lineTo(mx,my);
+          ctx.strokeStyle=NEON_WHITE+'0.3)';ctx.lineWidth=1;ctx.stroke();
+        });
+        // Finger phalanges - cyan neon
+        var fingerRanges=[[1,4],[5,8],[9,12],[13,16],[17,20]];
+        fingerRanges.forEach(function(rng){
+          for(var ji=rng[0];ji<rng[1];ji++){
+            var p1=hl[ji],p2=hl[ji+1];
+            if(!p1||!p2)continue;
+            var x1=(1-p1.x)*innerWidth,y1=p1.y*innerHeight;
+            var x2=(1-p2.x)*innerWidth,y2=p2.y*innerHeight;
+            var dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+            if(len<2)continue;
+            var nx=-dy/len,ny=dx/len;
+            var cf=isRight?-1:1;
+            var bend=0;
+            if(ji-1>=0&&ji+2<21&&hl[ji-1]&&hl[ji+2]){
+              var ax=hl[ji-1].x-hl[ji].x,ay=hl[ji-1].y-hl[ji].y;
+              var cx=hl[ji+2].x-hl[ji+1].x,cy=hl[ji+2].y-hl[ji+1].y;
+              var dt=ax*cx+ay*cy;
+              var mg=Math.sqrt(ax*ax+ay*ay)*Math.sqrt(cx*cx+cy*cy);
+              if(mg>0.001){var ac=Math.acos(Math.max(-1,Math.min(1,dt/mg)));bend=(Math.PI-ac)/Math.PI;}
+            }
+            var segRatio=[1,0.75,0.5][ji-rng[0]]||1;
+            var off=bend*len*0.25*cf*segRatio;
+            if(!off)off=len*0.02*cf;
+            var mx=(x1+x2)/2+nx*off,my=(y1+y2)/2+ny*off;
+            // Outer glow
+            ctx.shadowBlur=6;ctx.shadowColor='rgba(0,255,255,.4)';
+            ctx.beginPath();ctx.moveTo(x1,y1);ctx.quadraticCurveTo(mx,my,x2,y2);
+            ctx.strokeStyle=NEON_CYAN+'0.5)';ctx.lineWidth=4;ctx.stroke();
+            // Inner core
+            ctx.shadowBlur=0;
+            ctx.beginPath();ctx.moveTo(x1,y1);ctx.quadraticCurveTo(mx,my,x2,y2);
+            ctx.strokeStyle=NEON_WHITE+'0.5)';ctx.lineWidth=1.5;ctx.stroke();
+          }
+        });
+        ctx.restore();
+
+        // ── BOUNDING BOXES around each joint ----
+        ctx.save();
+        var jointGroups=[
+          {idx:0,name:'WRIST',color:NEON_PURPLE},
+          {idx:1,name:'MCP I',color:NEON_CYAN},{idx:2,name:'PIP I',color:NEON_CYAN},{idx:3,name:'DIP I',color:NEON_CYAN},{idx:4,name:'TIP I',color:NEON_CYAN},
+          {idx:5,name:'MCP II',color:NEON_CYAN},{idx:6,name:'PIP II',color:NEON_CYAN},{idx:7,name:'DIP II',color:NEON_CYAN},{idx:8,name:'TIP II',color:NEON_CYAN},
+          {idx:9,name:'MCP III',color:NEON_CYAN},{idx:10,name:'PIP III',color:NEON_CYAN},{idx:11,name:'DIP III',color:NEON_CYAN},{idx:12,name:'TIP III',color:NEON_CYAN},
+          {idx:13,name:'MCP IV',color:NEON_CYAN},{idx:14,name:'PIP IV',color:NEON_CYAN},{idx:15,name:'DIP IV',color:NEON_CYAN},{idx:16,name:'TIP IV',color:NEON_CYAN},
+          {idx:17,name:'MCP V',color:NEON_CYAN},{idx:18,name:'PIP V',color:NEON_CYAN},{idx:19,name:'DIP V',color:NEON_CYAN},{idx:20,name:'TIP V',color:NEON_CYAN},
+        ];
+        jointGroups.forEach(function(jg){
+          var p=hl[jg.idx];
+          if(!p)return;
+          var x=(1-p.x)*innerWidth,y=p.y*innerHeight;
+          // Confidence score (simulated)
+          var conf=(0.75+0.2*Math.sin(_t*0.5+jg.idx*0.3)).toFixed(2);
+          var boxSize=14+4*Math.sin(_t*1.5+jg.idx);
+          var cl=jg.color;
+          // Neon bounding box
+          ctx.shadowBlur=3;ctx.shadowColor=cl.replace('rgba','rgb').replace(/,0?\.[^)]*/,')');
+          ctx.strokeStyle=cl+'0.8)';ctx.lineWidth=1.2;
+          ctx.strokeRect(x-boxSize/2,y-boxSize/2,boxSize,boxSize);
+          ctx.shadowBlur=0;
+          // corner accents removed for perf
+          // Label: bone name
+          ctx.fillStyle=NEON_WHITE+'0.85)';ctx.font='bold 9px "SF Mono","SF Pro Text",monospace';
+          ctx.textAlign='center';ctx.textBaseline='bottom';
+          ctx.fillText(jg.name,x,y-boxSize/2-3);
+          // Confidence score
+          ctx.fillStyle=cl+'0.7)';ctx.font='7px "SF Mono",monospace';
+          ctx.textBaseline='top';
+          ctx.fillText(conf,x,y+boxSize/2+2);
+        });
+        ctx.restore();
+
+        // ── JOINT NODES: X-ray bright spots ----
+        ctx.save();
+        hl.forEach(function(p,ji){
+          if(!p)return;
+          var x=(1-p.x)*innerWidth,y=p.y*innerHeight;
+          var pulse=1+0.1*Math.sin(_t*2+ji);
+          var r=(ji===0?5:ji%4===0?2.5:3.5)*pulse;
+          var cl=ji===0?NEON_PURPLE:NEON_CYAN;
+          ctx.shadowBlur=4;ctx.shadowColor=cl.replace('rgba','rgb').replace(/,0?\.[^)]*/,')');
+          var g=ctx.createRadialGradient(x,y,0,x,y,r);
+          g.addColorStop(0,'rgba(255,255,255,.95)');
+          g.addColorStop(0.3,cl+'0.9)');
+          g.addColorStop(1,'rgba(0,0,0,.3)');
+          ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+          try{ctx.fillStyle=g;}catch(e){ctx.fillStyle=cl+'0.8)'}
+          ctx.fill();
+          ctx.shadowBlur=0;
+        });
+        ctx.restore();
+
+        // ── HAND LABEL (LEFT / RIGHT) ----
+        ctx.save();
+        var handX=(minX+maxX)/2,handY=minY-6;
+        if(handY<5)handY=maxY+20;
+        ctx.fillStyle=NEON_PURPLE+'0.6)';ctx.font='bold 10px "SF Mono",monospace';
+        ctx.textAlign='center';ctx.textBaseline='bottom';
+        ctx.fillText('■ '+handLabel+' HAND ■',handX,handY);
+        ctx.restore();
+      }
+    }catch(e){console.warn('[Hand]',e)}}
+
+
+
+
+
+
+
+
+
+
+
+    // ── gesture recognition removed ──
+
+
+
+
+
+
+
+
+
+    // ── hand trail removed ──
+
+
+
+
+  }
+
+
+
+
+  hcEl&&(hcEl.textContent=handCount||(handsReady?'0':'--'));
+
+
+
+
+
+
+
+
+
+  // 4. PARTICLES & FILTER — removed
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+// ===================================================================
+// FACE AR EFFECTS — removed
+</script>
